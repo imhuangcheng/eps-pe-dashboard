@@ -1,0 +1,1440 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>EPS-PE仪表板</title>
+  <style>
+    :root {
+      --bg: #f4f1eb;
+      --surface: rgba(255, 255, 255, 0.9);
+      --ink: #17231e;
+      --muted: #6d766f;
+      --line: #dcded8;
+      --accent: #0d6b4f;
+      --accent-dark: #084a38;
+      --accent-soft: #e1f1e9;
+      --danger: #b33a32;
+      --shadow: 0 18px 48px rgba(35, 47, 40, 0.09);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 12%, rgba(13, 107, 79, 0.12), transparent 26rem),
+        radial-gradient(circle at 92% 94%, rgba(195, 139, 61, 0.12), transparent 24rem),
+        var(--bg);
+      font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    }
+
+    button, input, select { font: inherit; }
+
+    .page {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 56px 0 44px;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-family: Georgia, "Songti SC", serif;
+      font-size: clamp(34px, 6vw, 64px);
+      font-weight: 600;
+      letter-spacing: -0.04em;
+      line-height: 1.04;
+    }
+
+    .subtitle {
+      max-width: 680px;
+      margin: 16px 0 0;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.8;
+    }
+
+    .query-panel {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      margin: 32px 0 20px;
+      padding: 14px;
+      background: var(--surface);
+      border: 1px solid rgba(255, 255, 255, 0.85);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .input-wrap { position: relative; }
+
+    .input-wrap label {
+      position: absolute;
+      top: 10px;
+      left: 16px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+
+    #stock-code {
+      width: 100%;
+      height: 62px;
+      padding: 25px 16px 8px;
+      color: var(--ink);
+      background: #f8f8f5;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      font-size: 22px;
+      font-weight: 750;
+      letter-spacing: 0.08em;
+      outline: none;
+      transition: border-color 160ms, box-shadow 160ms;
+    }
+
+    #stock-code:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(13, 107, 79, 0.12);
+    }
+
+    #search-button {
+      min-width: 142px;
+      padding: 0 25px;
+      color: white;
+      background: var(--accent);
+      border: 0;
+      border-radius: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform 160ms, background 160ms;
+    }
+
+    #search-button:hover { background: var(--accent-dark); transform: translateY(-1px); }
+    #search-button:disabled { cursor: wait; opacity: 0.68; transform: none; }
+
+    .status {
+      min-height: 24px;
+      margin: 0 4px 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .status[data-kind="error"] { color: var(--danger); font-weight: 650; }
+    .status[data-kind="loading"]::before {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin-right: 8px;
+      content: "";
+      border: 2px solid var(--accent-soft);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 700ms linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .dashboard[hidden] { display: none; }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1.4fr repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    .card, .table-card, .notes {
+      background: var(--surface);
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .card { min-height: 155px; padding: 23px; }
+    .company-card { background: linear-gradient(135deg, #0d6b4f, #084a38); color: white; }
+    .card-label { margin: 0 0 17px; color: var(--muted); font-size: 12px; font-weight: 800; letter-spacing: 0.1em; }
+    .company-card .card-label { color: rgba(255, 255, 255, 0.65); }
+    .company-name { margin: 0; font-size: clamp(23px, 4vw, 34px); font-weight: 800; }
+    .company-code { margin: 10px 0 0; color: rgba(255, 255, 255, 0.72); font-weight: 650; letter-spacing: 0.08em; }
+    .metric { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: clamp(31px, 4vw, 43px); font-variant-numeric: tabular-nums; }
+    .metric .unit { margin-left: 6px; color: var(--muted); font-family: inherit; font-size: 15px; }
+    .updated { grid-column: 1 / -1; margin: -3px 3px 5px; color: var(--muted); font-size: 12px; text-align: right; }
+
+    .table-card { margin-top: 16px; padding: 24px; overflow: hidden; }
+    .table-head { display: flex; align-items: end; justify-content: space-between; gap: 18px; margin-bottom: 20px; }
+    .table-title { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 26px; }
+    .table-subtitle { margin: 7px 0 0; color: var(--muted); font-size: 13px; }
+    .year-control { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; font-weight: 700; white-space: nowrap; }
+    #year-select { padding: 9px 32px 9px 12px; color: var(--ink); background: #f5f6f2; border: 1px solid var(--line); border-radius: 9px; font-weight: 750; }
+
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; min-width: 760px; border-collapse: collapse; }
+    th, td { padding: 19px 15px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+    th { color: var(--muted); background: #f7f7f4; font-size: 12px; letter-spacing: 0.04em; }
+    th:first-child, td:first-child { position: sticky; left: 0; z-index: 1; text-align: left; }
+    th:first-child { background: #f7f7f4; }
+    td:first-child { background: white; font-weight: 800; }
+    td { font-size: 17px; font-variant-numeric: tabular-nums; }
+    tbody tr:last-child td { border-bottom: 0; }
+
+    .notes { margin-top: 16px; padding: 20px 24px; color: var(--muted); font-size: 13px; line-height: 1.75; }
+    .notes strong { color: var(--ink); }
+    .notes p { margin: 4px 0; }
+
+    .valuation-card {
+      margin-top: 16px;
+      background: var(--surface);
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .valuation-head {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      padding: 24px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .valuation-icon {
+      display: grid;
+      width: 38px;
+      height: 38px;
+      place-items: center;
+      color: #2f6feb;
+      background: #edf3ff;
+      border-radius: 11px;
+      font-size: 21px;
+      font-weight: 900;
+    }
+
+    .valuation-head h2 {
+      margin: 0;
+      font-family: Georgia, "Songti SC", serif;
+      font-size: 26px;
+    }
+
+    .valuation-body {
+      display: grid;
+      grid-template-columns: minmax(220px, 0.7fr) minmax(420px, 2fr);
+      gap: 48px;
+      align-items: center;
+      padding: 42px 40px 50px;
+    }
+
+    .pe-caption { margin: 0 0 14px; color: #66748c; font-size: 15px; font-weight: 800; }
+    .pe-current { margin: 0; font-family: Georgia, serif; font-size: clamp(55px, 8vw, 76px); font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+    .pe-basis { margin: 15px 0 0; color: #94a1b4; font-size: 13px; font-weight: 700; }
+
+    .range-labels { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 21px; }
+    .range-end { min-width: 122px; }
+    .range-end:last-child { text-align: right; }
+    .range-tag { display: inline-block; padding: 5px 9px; border-radius: 7px; font-size: 13px; font-weight: 850; }
+    .range-tag.low { color: #008c61; background: #e6f8f0; }
+    .range-tag.high { color: #d9342b; background: #fff0ef; }
+    .range-value { margin: 9px 0 0; font-family: Georgia, serif; font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+    .pe-track-wrap { position: relative; padding-bottom: 52px; }
+    .pe-track { height: 18px; background: linear-gradient(90deg, #61d5a7 0%, #e9db55 48%, #ffbd57 72%, #f16468 100%); border-radius: 999px; }
+    .pe-marker {
+      position: absolute;
+      top: 29px;
+      left: var(--position, 50%);
+      padding: 8px 13px;
+      color: white;
+      background: #202b3d;
+      border-radius: 7px;
+      box-shadow: 0 10px 25px rgba(32, 43, 61, 0.2);
+      font-size: 13px;
+      font-weight: 850;
+      white-space: nowrap;
+      transform: translateX(-50%);
+    }
+    .pe-marker::before {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      content: "";
+      border-right: 7px solid transparent;
+      border-bottom: 8px solid #202b3d;
+      border-left: 7px solid transparent;
+      transform: translateX(-50%);
+    }
+    .valuation-message { margin: -25px 40px 34px; color: var(--muted); font-size: 13px; }
+
+    .scenario-card {
+      margin-top: 16px;
+      background: var(--surface);
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .scenario-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 24px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .scenario-head h2 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 26px; }
+    .scenario-head p { margin: 7px 0 0; color: var(--muted); font-size: 13px; }
+    .volatility-control { display: flex; align-items: center; gap: 12px; min-width: min(390px, 45%); }
+    .volatility-control label { color: var(--muted); font-size: 13px; font-weight: 800; white-space: nowrap; }
+    #volatility-range { width: 100%; accent-color: var(--accent); cursor: pointer; }
+    .volatility-number-wrap {
+      display: flex;
+      align-items: center;
+      padding: 7px 9px;
+      background: #f5f6f2;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      font-weight: 800;
+    }
+    #volatility-number { width: 44px; padding: 0; color: var(--ink); background: transparent; border: 0; outline: none; text-align: right; font-weight: 800; }
+    #volatility-number { appearance: textfield; -moz-appearance: textfield; }
+    #volatility-number::-webkit-inner-spin-button,
+    #volatility-number::-webkit-outer-spin-button { margin: 0; -webkit-appearance: none; }
+    .scenario-section { padding: 22px 24px 4px; }
+    .scenario-section:last-child { padding-bottom: 25px; }
+    .scenario-section-title { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; margin: 0 0 12px; }
+    .scenario-section-title h3 { margin: 0; font-size: 16px; }
+    .scenario-section-title span { color: var(--muted); font-size: 12px; }
+    .scenario-table { min-width: 820px; }
+    .scenario-table th:first-child, .scenario-table td:first-child { min-width: 90px; }
+    .scenario-name { display: inline-flex; align-items: center; gap: 8px; }
+    .scenario-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .scenario-dot.pessimistic { background: #6483a7; }
+    .scenario-dot.neutral { background: #c28a36; }
+    .scenario-dot.optimistic { background: #c4514f; }
+    td.actual-cell { background: #e6f5ed; box-shadow: inset 0 -2px 0 #58b58a; }
+    .actual-legend { color: #17825d !important; font-weight: 750; }
+    .scenario-tools { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+    .negative-legend { color: #a85c35 !important; font-weight: 750; }
+    .reset-overrides {
+      padding: 5px 9px;
+      color: var(--muted);
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      font-size: 12px;
+      font-weight: 750;
+      cursor: pointer;
+    }
+    .reset-overrides:hover { color: var(--ink); border-color: #aeb4ac; }
+    .reset-overrides[hidden] { display: none; }
+    td.manual-profit-cell { padding: 8px 11px; background: #fff6eb; }
+    .negative-profit-input {
+      width: 112px;
+      padding: 8px 10px;
+      color: #8e3f24;
+      background: #fffaf4;
+      border: 1px dashed #d99368;
+      border-radius: 8px;
+      outline: none;
+      text-align: right;
+      font-weight: 750;
+      font-variant-numeric: tabular-nums;
+    }
+    .negative-profit-input:focus { border-style: solid; box-shadow: 0 0 0 3px rgba(217, 147, 104, 0.16); }
+    .negative-profit-input { appearance: textfield; -moz-appearance: textfield; }
+    .negative-profit-input::-webkit-inner-spin-button,
+    .negative-profit-input::-webkit-outer-spin-button { margin: 0; -webkit-appearance: none; }
+    .price-cell { font-weight: 750; }
+    .space-positive { color: #c83b35; font-weight: 750; }
+    .space-negative { color: #118361; font-weight: 750; }
+    .scenario-footnote { margin: 12px 0 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
+
+    .noscript { width: min(720px, calc(100% - 32px)); margin: 30px auto; padding: 18px; color: var(--danger); background: #fff; border-radius: 12px; }
+
+    @media (max-width: 720px) {
+      .page { width: min(100% - 22px, 1120px); padding-top: 34px; }
+      .query-panel { grid-template-columns: 1fr; }
+      #search-button { height: 54px; }
+      .summary-grid { grid-template-columns: 1fr 1fr; }
+      .company-card { grid-column: 1 / -1; }
+      .table-card { padding: 18px 0 8px; }
+      .table-head { align-items: flex-start; flex-direction: column; padding: 0 18px; }
+      .table-scroll { padding-left: 0; }
+      th, td { padding: 17px 13px; }
+      .notes { padding: 18px; }
+      .valuation-head { padding: 20px 18px; }
+      .valuation-body { grid-template-columns: 1fr; gap: 34px; padding: 30px 18px 38px; }
+      .valuation-message { margin: -15px 18px 28px; }
+      .scenario-head { align-items: flex-start; flex-direction: column; padding: 20px 18px; }
+      .volatility-control { min-width: 100%; }
+      .scenario-section { padding: 20px 0 4px; }
+      .scenario-section:last-child { padding-bottom: 20px; }
+      .scenario-section-title, .scenario-footnote { padding-right: 18px; padding-left: 18px; }
+      .scenario-tools { align-items: flex-end; flex-direction: column; gap: 6px; }
+    }
+
+    @media (max-width: 430px) {
+      .summary-grid { grid-template-columns: 1fr; }
+      .company-card { grid-column: auto; }
+      .updated { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+  <noscript><div class="noscript">请开启 JavaScript 后使用此页面。</div></noscript>
+
+  <main class="page">
+    <p class="eyebrow">A-SHARE FINANCIALS</p>
+    <h1>EPS-PE仪表板</h1>
+    <p class="subtitle">输入六位A股代码，查看最新股价、总股本以及最近完整财年的单季度归母净利润。</p>
+
+    <form class="query-panel" id="query-form" novalidate>
+      <div class="input-wrap">
+        <label for="stock-code">股票代码</label>
+        <input id="stock-code" name="stockCode" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="例如 600519" value="600519" aria-describedby="status-message">
+      </div>
+      <button id="search-button" type="submit">查询数据</button>
+    </form>
+    <p class="status" id="status-message" role="status" aria-live="polite">输入代码后点击查询。</p>
+
+    <section class="dashboard" id="dashboard" hidden aria-label="股票数据">
+      <div class="summary-grid">
+        <article class="card company-card">
+          <p class="card-label">公司</p>
+          <p class="company-name" id="company-name">—</p>
+          <p class="company-code" id="company-code">—</p>
+        </article>
+        <article class="card">
+          <p class="card-label">最新股价</p>
+          <p class="metric"><span id="latest-price">—</span><span class="unit">元</span></p>
+        </article>
+        <article class="card">
+          <p class="card-label">总股本</p>
+          <p class="metric"><span id="total-shares">—</span><span class="unit">亿股</span></p>
+        </article>
+        <p class="updated" id="updated-time">数据时间：—</p>
+      </div>
+
+      <article class="table-card">
+        <div class="table-head">
+          <div>
+            <h2 class="table-title">季度盈利表现</h2>
+            <p class="table-subtitle">归母净利润单位：亿元；EPS单位：元/股</p>
+          </div>
+          <label class="year-control" for="year-select">
+            财年
+            <select id="year-select" aria-label="选择财年"></select>
+          </label>
+        </div>
+
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">指标</th>
+                <th scope="col">第一季度</th>
+                <th scope="col">第二季度</th>
+                <th scope="col">第三季度</th>
+                <th scope="col">第四季度</th>
+                <th scope="col">全年EPS</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>单季度归母净利润</td>
+                <td id="profit-q1">—</td>
+                <td id="profit-q2">—</td>
+                <td id="profit-q3">—</td>
+                <td id="profit-q4">—</td>
+                <td id="annual-eps">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="valuation-card" aria-labelledby="valuation-title">
+        <div class="valuation-head">
+          <span class="valuation-icon" aria-hidden="true">
+            <svg width="22" height="25" viewBox="0 0 22 25" fill="none">
+              <path d="M11 1.5 19.5 5v6.8c0 5.5-3.5 9.5-8.5 11.7-5-2.2-8.5-6.2-8.5-11.7V5L11 1.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M11 7v5.2M11 16.2v.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <h2 id="valuation-title">EPS-PE 估值水位分析（近5年）</h2>
+        </div>
+        <div class="valuation-body">
+          <div>
+            <p class="pe-caption">当前动态市盈率（TTM）</p>
+            <p class="pe-current" id="current-pe">—</p>
+            <p class="pe-basis" id="pe-basis">基于最新TTM EPS测算</p>
+          </div>
+          <div>
+            <div class="range-labels">
+              <div class="range-end">
+                <span class="range-tag low">历史极度低估</span>
+                <p class="range-value" id="pe-low">—</p>
+              </div>
+              <div class="range-end">
+                <span class="range-tag high">历史极度泡沫</span>
+                <p class="range-value" id="pe-high">—</p>
+              </div>
+            </div>
+            <div class="pe-track-wrap">
+              <div class="pe-track" aria-hidden="true"></div>
+              <div class="pe-marker" id="pe-marker">当前水位</div>
+            </div>
+          </div>
+        </div>
+        <p class="valuation-message" id="valuation-message">查询后生成近五年估值区间。</p>
+      </article>
+
+      <article class="scenario-card" aria-labelledby="scenario-title">
+        <div class="scenario-head">
+          <div>
+            <h2 id="scenario-title">本年利润与股价情景推演</h2>
+            <p id="scenario-subtitle">以上一年度单季度归母净利润为基准</p>
+          </div>
+          <div class="volatility-control">
+            <label for="volatility-range">预测波动系数</label>
+            <input id="volatility-range" type="range" min="0" max="100" step="1" value="30">
+            <span class="volatility-number-wrap">
+              <input id="volatility-number" type="number" min="0" max="100" step="1" value="30" aria-label="预测波动系数百分比">
+              <span>%</span>
+            </span>
+          </div>
+        </div>
+
+        <section class="scenario-section">
+          <div class="scenario-section-title">
+            <h3>季度净利润与EPS预测</h3>
+            <div class="scenario-tools">
+              <span class="actual-legend">绿色单元格 = 已披露数据</span>
+              <span class="negative-legend">橙色输入框 = 负值预测可手动调节</span>
+              <button class="reset-overrides" id="reset-negative-overrides" type="button" hidden>重置手动值</button>
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table class="scenario-table">
+              <thead>
+                <tr>
+                  <th scope="col">情景</th>
+                  <th scope="col">第一季度</th>
+                  <th scope="col">第二季度</th>
+                  <th scope="col">第三季度</th>
+                  <th scope="col">第四季度</th>
+                  <th scope="col">总计</th>
+                  <th scope="col">EPS</th>
+                </tr>
+              </thead>
+              <tbody id="forecast-body"></tbody>
+            </table>
+          </div>
+          <p class="scenario-footnote">净利润单位：亿元；EPS单位：元/股。已披露季度在三种情景中均使用实际值，仅未披露季度应用波动系数。负值预测可直接输入手动假设，失焦或按回车后更新后续估值。</p>
+        </section>
+
+        <section class="scenario-section">
+          <div class="scenario-section-title">
+            <h3>EPS × PE 目标股价</h3>
+            <span>五档PE由近五年极值向上取整后等距生成</span>
+          </div>
+          <div class="table-scroll">
+            <table class="scenario-table">
+              <thead><tr id="price-grid-head"></tr></thead>
+              <tbody id="price-grid-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="scenario-section">
+          <div class="scenario-section-title">
+            <h3>相对最新收盘价的波动空间</h3>
+            <span id="scenario-close-label">最新收盘价：—</span>
+          </div>
+          <div class="table-scroll">
+            <table class="scenario-table">
+              <thead><tr id="space-grid-head"></tr></thead>
+              <tbody id="space-grid-body"></tbody>
+            </table>
+          </div>
+          <p class="scenario-footnote" id="scenario-message">查询后自动生成情景估值表。</p>
+        </section>
+      </article>
+
+      <aside class="notes">
+        <p><strong>数据口径：</strong>股价、总股本和历史日线取自腾讯行情；净利润和基本EPS取自东方财富财报数据。</p>
+        <p><strong>计算方法：</strong>Q1直接取一季报累计值；Q2、Q3、Q4依次用当期累计值减去上期累计值。全年EPS为年报披露的基本每股收益。</p>
+        <p><strong>估值方法：</strong>TTM EPS由最近四个单季度归母净利润除以当前总股本得到；近五年PE使用历史收盘价和当时已公告的TTM EPS测算。</p>
+        <p><strong>情景方法：</strong>未披露季度分别按上年同季净利润 ×（1 − 波动系数）、上年同季净利润、上年同季净利润 ×（1 + 波动系数）预测。目标价为情景EPS × PE，波动空间为目标价 ÷ 最新收盘价 − 1。</p>
+        <p><strong>说明：</strong>本页使用第三方公开数据接口，仅供信息展示，不构成投资建议。</p>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const CONFIG = {
+        timeoutMs: 12000,
+        quoteUrl: "https://qt.gtimg.cn/q=",
+        financialUrl: "https://datacenter-web.eastmoney.com/api/data/v1/get",
+        klineUrl: "https://web.ifzq.gtimg.cn/appstock/app/kline/kline",
+        financialReport: "RPT_LICO_FN_CPD"
+      };
+
+      const FIELD_ALIASES = {
+        reportDate: ["REPORT_DATE", "REPORTDATE"],
+        noticeDate: ["NOTICE_DATE", "UPDATE_DATE", "NOTICE_DATE_DATETIME"],
+        parentProfit: ["PARENT_NETPROFIT", "PARENT_NET_PROFIT", "NETPROFIT_PARENT_COMPANY"],
+        basicEps: ["BASIC_EPS", "BASICEPS"]
+      };
+
+      const dom = {
+        form: document.querySelector("#query-form"),
+        input: document.querySelector("#stock-code"),
+        button: document.querySelector("#search-button"),
+        status: document.querySelector("#status-message"),
+        dashboard: document.querySelector("#dashboard"),
+        companyName: document.querySelector("#company-name"),
+        companyCode: document.querySelector("#company-code"),
+        latestPrice: document.querySelector("#latest-price"),
+        totalShares: document.querySelector("#total-shares"),
+        updatedTime: document.querySelector("#updated-time"),
+        yearSelect: document.querySelector("#year-select"),
+        q1: document.querySelector("#profit-q1"),
+        q2: document.querySelector("#profit-q2"),
+        q3: document.querySelector("#profit-q3"),
+        q4: document.querySelector("#profit-q4"),
+        eps: document.querySelector("#annual-eps"),
+        currentPe: document.querySelector("#current-pe"),
+        peBasis: document.querySelector("#pe-basis"),
+        peLow: document.querySelector("#pe-low"),
+        peHigh: document.querySelector("#pe-high"),
+        peMarker: document.querySelector("#pe-marker"),
+        valuationMessage: document.querySelector("#valuation-message"),
+        scenarioSubtitle: document.querySelector("#scenario-subtitle"),
+        volatilityRange: document.querySelector("#volatility-range"),
+        volatilityNumber: document.querySelector("#volatility-number"),
+        resetNegativeOverrides: document.querySelector("#reset-negative-overrides"),
+        forecastBody: document.querySelector("#forecast-body"),
+        priceGridHead: document.querySelector("#price-grid-head"),
+        priceGridBody: document.querySelector("#price-grid-body"),
+        spaceGridHead: document.querySelector("#space-grid-head"),
+        spaceGridBody: document.querySelector("#space-grid-body"),
+        scenarioCloseLabel: document.querySelector("#scenario-close-label"),
+        scenarioMessage: document.querySelector("#scenario-message")
+      };
+
+      let financialYears = new Map();
+      let activeRequest = 0;
+      let scenarioContext = null;
+      const manualProfitOverrides = new Map();
+
+      function setStatus(message, kind = "info") {
+        dom.status.textContent = message;
+        dom.status.dataset.kind = kind;
+      }
+
+      function isNumeric(value) {
+        return value !== null && value !== "" && Number.isFinite(Number(value));
+      }
+
+      function firstValue(record, aliases) {
+        for (const key of aliases) {
+          if (record && record[key] !== undefined && record[key] !== null && record[key] !== "") {
+            return record[key];
+          }
+        }
+        return null;
+      }
+
+      function validateCode(rawCode) {
+        const code = String(rawCode || "").trim();
+        if (!/^\d{6}$/.test(code)) {
+          throw new Error("请输入六位数字股票代码。");
+        }
+
+        const isShanghai = /^(600|601|603|605|688|689)\d{3}$/.test(code);
+        const isShenzhen = /^(000|001|002|003|300|301)\d{3}$/.test(code);
+        const isBeijing = /^(4|8|92)\d{5}$/.test(code);
+
+        if (!isShanghai && !isShenzhen && !isBeijing) {
+          throw new Error("暂仅支持沪、深、北交所A股代码。");
+        }
+
+        return {
+          code,
+          market: isShanghai ? "1" : "0",
+          marketName: isShanghai ? "上证" : isBeijing ? "北证" : "深证",
+          quoteSymbol: `${isShanghai ? "sh" : isBeijing ? "bj" : "sz"}${code}`
+        };
+      }
+
+      function jsonp(baseUrl, params, timeoutMs = CONFIG.timeoutMs) {
+        return new Promise((resolve, reject) => {
+          const callbackName = `__eastmoney_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+          const script = document.createElement("script");
+          const query = new URLSearchParams({ ...params, callback: callbackName });
+          let finished = false;
+
+          const cleanup = () => {
+            if (finished) return;
+            finished = true;
+            clearTimeout(timer);
+            script.remove();
+            try { delete window[callbackName]; } catch (_) { window[callbackName] = undefined; }
+          };
+
+          window[callbackName] = (payload) => {
+            cleanup();
+            resolve(payload);
+          };
+
+          script.onerror = () => {
+            cleanup();
+            reject(new Error("数据接口连接失败，请检查网络后重试。"));
+          };
+
+          const timer = window.setTimeout(() => {
+            cleanup();
+            reject(new Error("数据接口响应超时，请稍后重试。"));
+          }, timeoutMs);
+
+          script.src = `${baseUrl}?${query.toString()}`;
+          document.head.appendChild(script);
+        });
+      }
+
+      function parseTencentTime(value) {
+        if (!/^\d{14}$/.test(value || "")) return null;
+        const year = Number(value.slice(0, 4));
+        const month = Number(value.slice(4, 6)) - 1;
+        const day = Number(value.slice(6, 8));
+        const hour = Number(value.slice(8, 10));
+        const minute = Number(value.slice(10, 12));
+        const second = Number(value.slice(12, 14));
+        const date = new Date(year, month, day, hour, minute, second);
+        return Number.isNaN(date.getTime()) ? null : date;
+      }
+
+      function fetchQuote(stock) {
+        return new Promise((resolve, reject) => {
+          const variableName = `v_${stock.quoteSymbol}`;
+          const script = document.createElement("script");
+          let finished = false;
+
+          const cleanup = () => {
+            if (finished) return;
+            finished = true;
+            clearTimeout(timer);
+            script.remove();
+            try { delete window[variableName]; } catch (_) { window[variableName] = undefined; }
+          };
+
+          const fail = (message) => {
+            cleanup();
+            reject(new Error(message));
+          };
+
+          script.charset = "gbk";
+          script.onload = () => {
+            const raw = window[variableName];
+            if (typeof raw !== "string" || !raw.includes("~")) {
+              fail("未找到该股票，请确认代码和上市状态。");
+              return;
+            }
+
+            const fields = raw.split("~");
+            const price = isNumeric(fields[3]) && Number(fields[3]) > 0 ? Number(fields[3]) : null;
+            const totalMarketCapYi = isNumeric(fields[45]) && Number(fields[45]) > 0 ? Number(fields[45]) : null;
+            // 腾讯字段45为总市值（亿元）；除以最新价可还原总股本。
+            const totalShares = price && totalMarketCapYi ? totalMarketCapYi * 100000000 / price : null;
+            const result = {
+              name: fields[1] || null,
+              code: fields[2] || stock.code,
+              price,
+              decimals: 2,
+              totalShares,
+              updatedAt: parseTencentTime(fields[30])
+            };
+
+            cleanup();
+            resolve(result);
+          };
+
+          script.onerror = () => fail("行情接口连接失败，请检查网络后重试。");
+          const timer = window.setTimeout(() => fail("行情接口响应超时，请稍后重试。"), CONFIG.timeoutMs);
+          script.src = `${CONFIG.quoteUrl}${encodeURIComponent(stock.quoteSymbol)}&_=${Date.now()}`;
+          document.head.appendChild(script);
+        });
+      }
+
+      async function fetchFinancials(code) {
+        const payload = await jsonp(CONFIG.financialUrl, {
+          reportName: CONFIG.financialReport,
+          columns: "ALL",
+          filter: `(SECURITY_CODE=\"${code}\")`,
+          pageNumber: "1",
+          pageSize: "80",
+          // 当前财报数据集的报告期字段名为 REPORTDATE（无下划线）。
+          sortColumns: "REPORTDATE,NOTICE_DATE",
+          sortTypes: "-1,-1",
+          source: "WEB",
+          client: "WEB"
+        });
+
+        if (!payload || payload.success === false) {
+          throw new Error("财报数据请求失败，请稍后重试。");
+        }
+
+        const rows = payload.result && Array.isArray(payload.result.data) ? payload.result.data : [];
+        if (!rows.length) {
+          throw new Error("未查到该公司的季度财报数据。");
+        }
+        return rows;
+      }
+
+      function isoDate(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      }
+
+      function fetchKlineChunk(stock, begin, end) {
+        return new Promise((resolve, reject) => {
+          const variableName = `__tencent_kline_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+          const script = document.createElement("script");
+          let finished = false;
+
+          const cleanup = () => {
+            if (finished) return;
+            finished = true;
+            clearTimeout(timer);
+            script.remove();
+            try { delete window[variableName]; } catch (_) { window[variableName] = undefined; }
+          };
+
+          const fail = () => {
+            cleanup();
+            reject(new Error("近五年日线数据暂不可用。"));
+          };
+
+          script.onload = () => {
+            const payload = window[variableName];
+            const stockData = payload && payload.data && payload.data[stock.quoteSymbol];
+            const lines = stockData && Array.isArray(stockData.day) ? stockData.day : [];
+            const result = lines.map((fields) => ({
+              date: toDate(fields[0]),
+              close: isNumeric(fields[2]) ? Number(fields[2]) : null
+            })).filter((item) => item.date && item.close && item.close > 0);
+            cleanup();
+            resolve(result);
+          };
+
+          script.onerror = fail;
+          const timer = window.setTimeout(fail, CONFIG.timeoutMs);
+          const range = `${stock.quoteSymbol},day,${isoDate(begin)},${isoDate(end)},640`;
+          script.src = `${CONFIG.klineUrl}?_var=${encodeURIComponent(variableName)}&param=${encodeURIComponent(range)}`;
+          document.head.appendChild(script);
+        });
+      }
+
+      async function fetchKlines(stock) {
+        const end = new Date();
+        const begin = new Date(end);
+        begin.setFullYear(begin.getFullYear() - 5);
+        begin.setDate(begin.getDate() - 7);
+
+        const split = new Date(end);
+        split.setFullYear(split.getFullYear() - 2);
+        split.setMonth(split.getMonth() - 6);
+        const secondBegin = new Date(split);
+        secondBegin.setDate(secondBegin.getDate() + 1);
+
+        const chunks = await Promise.all([
+          fetchKlineChunk(stock, begin, split),
+          fetchKlineChunk(stock, secondBegin, end)
+        ]);
+        const unique = new Map();
+        for (const item of chunks.flat()) unique.set(isoDate(item.date), item);
+        const result = [...unique.values()].sort((a, b) => a.date - b.date);
+        if (!result.length) throw new Error("近五年日线数据暂不可用。");
+        return result;
+      }
+
+      function toDate(value) {
+        if (!value) return null;
+        const date = new Date(String(value).replace(/-/g, "/"));
+        return Number.isNaN(date.getTime()) ? null : date;
+      }
+
+      function reportQuarter(record) {
+        const date = toDate(firstValue(record, FIELD_ALIASES.reportDate));
+        if (!date) return null;
+        const month = date.getMonth() + 1;
+        const quarter = month === 3 ? 1 : month === 6 ? 2 : month === 9 ? 3 : month === 12 ? 4 : null;
+        return quarter ? { year: date.getFullYear(), quarter } : null;
+      }
+
+      function normalizeFinancials(rows) {
+        const grouped = new Map();
+
+        // 同一报告期可能有修订版：接口已按公告日降序，仅保留首条。
+        for (const record of rows) {
+          const point = reportQuarter(record);
+          if (!point) continue;
+          if (!grouped.has(point.year)) grouped.set(point.year, new Map());
+          const quarters = grouped.get(point.year);
+          if (quarters.has(point.quarter)) continue;
+
+          quarters.set(point.quarter, {
+            cumulativeProfit: firstValue(record, FIELD_ALIASES.parentProfit),
+            basicEps: firstValue(record, FIELD_ALIASES.basicEps),
+            noticeDate: firstValue(record, FIELD_ALIASES.noticeDate)
+          });
+        }
+
+        const completeYears = new Map();
+        for (const [year, quarters] of grouped.entries()) {
+          if (![1, 2, 3, 4].every((q) => quarters.has(q))) continue;
+
+          const cumulative = [1, 2, 3, 4].map((q) => {
+            const value = quarters.get(q).cumulativeProfit;
+            return isNumeric(value) ? Number(value) : null;
+          });
+
+          completeYears.set(year, {
+            year,
+            quarterProfits: [
+              cumulative[0],
+              cumulative[0] !== null && cumulative[1] !== null ? cumulative[1] - cumulative[0] : null,
+              cumulative[1] !== null && cumulative[2] !== null ? cumulative[2] - cumulative[1] : null,
+              cumulative[2] !== null && cumulative[3] !== null ? cumulative[3] - cumulative[2] : null
+            ],
+            basicEps: isNumeric(quarters.get(4).basicEps) ? Number(quarters.get(4).basicEps) : null,
+            noticeDate: quarters.get(4).noticeDate
+          });
+        }
+
+        return new Map([...completeYears.entries()].sort((a, b) => b[0] - a[0]));
+      }
+
+      function buildTtmPoints(rows, totalShares) {
+        if (!Number.isFinite(totalShares) || totalShares <= 0) return [];
+        const reports = new Map();
+
+        for (const record of rows) {
+          const point = reportQuarter(record);
+          const cumulative = firstValue(record, FIELD_ALIASES.parentProfit);
+          const noticeDate = toDate(firstValue(record, FIELD_ALIASES.noticeDate));
+          if (!point || !isNumeric(cumulative) || !noticeDate) continue;
+
+          const key = `${point.year}-${point.quarter}`;
+          const existing = reports.get(key);
+          if (!existing || noticeDate > existing.noticeDate) {
+            reports.set(key, {
+              ...point,
+              cumulativeProfit: Number(cumulative),
+              noticeDate
+            });
+          }
+        }
+
+        const quarters = [...reports.values()].sort((a, b) =>
+          (a.year * 4 + a.quarter) - (b.year * 4 + b.quarter)
+        );
+
+        for (const item of quarters) {
+          if (item.quarter === 1) {
+            item.standaloneProfit = item.cumulativeProfit;
+          } else {
+            const previous = reports.get(`${item.year}-${item.quarter - 1}`);
+            item.standaloneProfit = previous ? item.cumulativeProfit - previous.cumulativeProfit : null;
+          }
+        }
+
+        const ttmPoints = [];
+        for (let index = 3; index < quarters.length; index += 1) {
+          const windowQuarters = quarters.slice(index - 3, index + 1);
+          const consecutive = windowQuarters.every((item, offset) => {
+            if (offset === 0) return true;
+            const previous = windowQuarters[offset - 1];
+            return item.year * 4 + item.quarter === previous.year * 4 + previous.quarter + 1;
+          });
+          const validProfits = windowQuarters.every((item) => Number.isFinite(item.standaloneProfit));
+          if (!consecutive || !validProfits) continue;
+
+          const ttmProfit = windowQuarters.reduce((sum, item) => sum + item.standaloneProfit, 0);
+          ttmPoints.push({
+            effectiveDate: quarters[index].noticeDate,
+            eps: ttmProfit / totalShares,
+            ttmProfit
+          });
+        }
+
+        return ttmPoints.sort((a, b) => a.effectiveDate - b.effectiveDate);
+      }
+
+      function calculateValuation(quote, financialRows, klines) {
+        const ttmPoints = buildTtmPoints(financialRows, quote.totalShares);
+        if (!ttmPoints.length) return null;
+
+        const latestTtm = ttmPoints[ttmPoints.length - 1];
+        const currentPe = quote.price && latestTtm.eps > 0 ? quote.price / latestTtm.eps : null;
+        const fiveYearsAgo = new Date();
+        fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
+
+        const peHistory = [];
+        let pointIndex = -1;
+        for (const kline of klines || []) {
+          if (kline.date < fiveYearsAgo) continue;
+          while (
+            pointIndex + 1 < ttmPoints.length &&
+            ttmPoints[pointIndex + 1].effectiveDate <= kline.date
+          ) {
+            pointIndex += 1;
+          }
+          if (pointIndex < 0 || ttmPoints[pointIndex].eps <= 0) continue;
+          const pe = kline.close / ttmPoints[pointIndex].eps;
+          if (Number.isFinite(pe) && pe > 0) peHistory.push(pe);
+        }
+
+        if (Number.isFinite(currentPe)) peHistory.push(currentPe);
+        return {
+          currentPe,
+          ttmEps: latestTtm.eps,
+          low: peHistory.length ? Math.min(...peHistory) : null,
+          high: peHistory.length ? Math.max(...peHistory) : null,
+          observations: peHistory.length,
+          latestClose: klines && klines.length ? klines[klines.length - 1].close : quote.price,
+          latestCloseDate: klines && klines.length ? klines[klines.length - 1].date : quote.updatedAt
+        };
+      }
+
+      function renderValuation(valuation, historyError = null) {
+        dom.currentPe.textContent = valuation && Number.isFinite(valuation.currentPe)
+          ? formatNumber(valuation.currentPe, 2)
+          : "—";
+        dom.peBasis.textContent = valuation && Number.isFinite(valuation.ttmEps)
+          ? `基于最新TTM EPS ${formatNumber(valuation.ttmEps, 2)}元测算`
+          : "最新TTM EPS不可用";
+        dom.peLow.textContent = valuation && Number.isFinite(valuation.low) ? formatNumber(valuation.low, 2) : "—";
+        dom.peHigh.textContent = valuation && Number.isFinite(valuation.high) ? formatNumber(valuation.high, 2) : "—";
+
+        let position = 50;
+        if (
+          valuation && Number.isFinite(valuation.currentPe) &&
+          Number.isFinite(valuation.low) && Number.isFinite(valuation.high) &&
+          valuation.high > valuation.low
+        ) {
+          position = Math.max(0, Math.min(100,
+            (valuation.currentPe - valuation.low) / (valuation.high - valuation.low) * 100
+          ));
+        }
+        dom.peMarker.style.setProperty("--position", `${position}%`);
+
+        if (historyError) {
+          dom.valuationMessage.textContent = `当前PE已测算；${historyError}`;
+        } else if (valuation && valuation.observations) {
+          dom.valuationMessage.textContent = `水位基于近五年 ${valuation.observations} 个有效日线观测值。`;
+        } else {
+          dom.valuationMessage.textContent = "缺少足够的正值TTM EPS或历史行情，暂无法生成估值区间。";
+        }
+      }
+
+      function buildStandaloneQuarterMap(rows) {
+        const reports = new Map();
+        for (const record of rows) {
+          const point = reportQuarter(record);
+          const cumulative = firstValue(record, FIELD_ALIASES.parentProfit);
+          const noticeDate = toDate(firstValue(record, FIELD_ALIASES.noticeDate));
+          if (!point || !isNumeric(cumulative)) continue;
+          const key = `${point.year}-${point.quarter}`;
+          const existing = reports.get(key);
+          if (!existing || (noticeDate && (!existing.noticeDate || noticeDate > existing.noticeDate))) {
+            reports.set(key, {
+              ...point,
+              cumulativeProfit: Number(cumulative),
+              noticeDate
+            });
+          }
+        }
+
+        for (const item of reports.values()) {
+          if (item.quarter === 1) {
+            item.standaloneProfit = item.cumulativeProfit;
+          } else {
+            const previous = reports.get(`${item.year}-${item.quarter - 1}`);
+            item.standaloneProfit = previous ? item.cumulativeProfit - previous.cumulativeProfit : null;
+          }
+        }
+        return reports;
+      }
+
+      function profitOverrideKey(stockCode, year, scenarioKey, quarterIndex) {
+        return `${stockCode}|${year}|${scenarioKey}|${quarterIndex}`;
+      }
+
+      function buildForecast(financialRows, totalShares, volatility, stockCode = "", overrides = new Map()) {
+        const currentYear = new Date().getFullYear();
+        const baselineYear = currentYear - 1;
+        const quarters = buildStandaloneQuarterMap(financialRows);
+        const baseline = [1, 2, 3, 4].map((quarter) => {
+          const item = quarters.get(`${baselineYear}-${quarter}`);
+          return item && Number.isFinite(item.standaloneProfit) ? item.standaloneProfit : null;
+        });
+        const disclosed = [1, 2, 3, 4].map((quarter) => {
+          const item = quarters.get(`${currentYear}-${quarter}`);
+          return item && Number.isFinite(item.standaloneProfit) ? item.standaloneProfit : null;
+        });
+
+        const definitions = [
+          { key: "pessimistic", label: "悲观", factor: 1 - volatility },
+          { key: "neutral", label: "中性", factor: 1 },
+          { key: "optimistic", label: "乐观", factor: 1 + volatility }
+        ];
+        const scenarios = definitions.map((definition) => {
+          const defaultValues = baseline.map((baseValue, index) => {
+            if (Number.isFinite(disclosed[index])) return disclosed[index];
+            return Number.isFinite(baseValue) ? baseValue * definition.factor : null;
+          });
+          const editableFlags = defaultValues.map((value, index) =>
+            !Number.isFinite(disclosed[index]) && Number.isFinite(value) && value < 0
+          );
+          const values = defaultValues.map((value, index) => {
+            const key = profitOverrideKey(stockCode, currentYear, definition.key, index);
+            return editableFlags[index] && overrides.has(key) ? overrides.get(key) : value;
+          });
+          const complete = values.every(Number.isFinite);
+          const total = complete ? values.reduce((sum, value) => sum + value, 0) : null;
+          const eps = Number.isFinite(total) && Number.isFinite(totalShares) && totalShares > 0
+            ? total / totalShares
+            : null;
+          return { ...definition, defaultValues, editableFlags, values, total, eps };
+        });
+
+        return {
+          currentYear,
+          baselineYear,
+          baseline,
+          disclosedFlags: disclosed.map(Number.isFinite),
+          overridePrefix: `${stockCode}|${currentYear}|`,
+          scenarios
+        };
+      }
+
+      function buildPeLevels(low, high) {
+        if (!Number.isFinite(low) || !Number.isFinite(high)) return [];
+        const roundedLow = Math.ceil(Math.min(low, high));
+        const roundedHigh = Math.ceil(Math.max(low, high));
+        if (roundedHigh === roundedLow) return Array(5).fill(roundedLow);
+        const step = (roundedHigh - roundedLow) / 4;
+        return Array.from({ length: 5 }, (_, index) =>
+          index === 4 ? roundedHigh : Math.ceil(roundedLow + step * index)
+        );
+      }
+
+      function scenarioNameCell(scenario) {
+        const cell = document.createElement("td");
+        const wrapper = document.createElement("span");
+        wrapper.className = "scenario-name";
+        const dot = document.createElement("span");
+        dot.className = `scenario-dot ${scenario.key}`;
+        wrapper.append(dot, document.createTextNode(scenario.label));
+        cell.appendChild(wrapper);
+        return cell;
+      }
+
+      function appendScenarioHeader(row, title, peLevels) {
+        row.replaceChildren();
+        const first = document.createElement("th");
+        first.scope = "col";
+        first.textContent = title;
+        row.appendChild(first);
+        for (const pe of peLevels) {
+          const cell = document.createElement("th");
+          cell.scope = "col";
+          cell.textContent = formatNumber(pe, 0);
+          row.appendChild(cell);
+        }
+      }
+
+      function renderScenario(context) {
+        scenarioContext = context;
+        const volatility = Math.max(0, Math.min(100, Number(dom.volatilityNumber.value) || 0)) / 100;
+        const forecast = buildForecast(
+          context.financialRows,
+          context.quote.totalShares,
+          volatility,
+          context.quote.code,
+          manualProfitOverrides
+        );
+        const peLevels = buildPeLevels(context.valuation && context.valuation.low, context.valuation && context.valuation.high);
+        const latestClose = context.latestClose;
+
+        dom.scenarioSubtitle.textContent = `以 ${forecast.baselineYear} 年单季度归母净利润为基准，预测 ${forecast.currentYear} 年`;
+        dom.forecastBody.replaceChildren();
+        for (const scenario of forecast.scenarios) {
+          const row = document.createElement("tr");
+          row.appendChild(scenarioNameCell(scenario));
+          scenario.values.forEach((value, index) => {
+            const cell = document.createElement("td");
+            if (forecast.disclosedFlags[index]) {
+              cell.textContent = Number.isFinite(value) ? formatNumber(value / 100000000, 2) : "—";
+              cell.classList.add("actual-cell");
+              cell.title = `${forecast.currentYear}年已披露数据`;
+            } else if (scenario.editableFlags[index]) {
+              const key = profitOverrideKey(context.quote.code, forecast.currentYear, scenario.key, index);
+              const input = document.createElement("input");
+              input.className = "negative-profit-input";
+              input.type = "number";
+              input.step = "0.01";
+              input.value = Number.isFinite(value) ? (value / 100000000).toFixed(2) : "";
+              input.dataset.overrideKey = key;
+              input.dataset.defaultValue = String(scenario.defaultValues[index]);
+              input.setAttribute("aria-label", `${scenario.label}情景第${index + 1}季度净利润手动值（亿元）`);
+              input.title = "负值预测，可输入手动假设（亿元）";
+              cell.classList.add("manual-profit-cell");
+              cell.appendChild(input);
+            } else {
+              cell.textContent = Number.isFinite(value) ? formatNumber(value / 100000000, 2) : "—";
+              cell.title = `${forecast.baselineYear}年同季基准推演`;
+            }
+            row.appendChild(cell);
+          });
+          const totalCell = document.createElement("td");
+          totalCell.textContent = Number.isFinite(scenario.total) ? formatNumber(scenario.total / 100000000, 2) : "—";
+          const epsCell = document.createElement("td");
+          epsCell.textContent = Number.isFinite(scenario.eps) ? formatNumber(scenario.eps, 2) : "—";
+          row.append(totalCell, epsCell);
+          dom.forecastBody.appendChild(row);
+        }
+
+        appendScenarioHeader(dom.priceGridHead, "PE", peLevels);
+        appendScenarioHeader(dom.spaceGridHead, "波动空间", peLevels);
+        dom.priceGridBody.replaceChildren();
+        dom.spaceGridBody.replaceChildren();
+        for (const scenario of forecast.scenarios) {
+          const priceRow = document.createElement("tr");
+          const spaceRow = document.createElement("tr");
+          priceRow.appendChild(scenarioNameCell(scenario));
+          spaceRow.appendChild(scenarioNameCell(scenario));
+
+          for (const pe of peLevels) {
+            const price = Number.isFinite(scenario.eps) && scenario.eps > 0 ? scenario.eps * pe : null;
+            const space = Number.isFinite(price) && Number.isFinite(latestClose) && latestClose > 0
+              ? price / latestClose - 1
+              : null;
+            const priceCell = document.createElement("td");
+            priceCell.className = "price-cell";
+            priceCell.textContent = Number.isFinite(price) ? formatNumber(price, 2) : "—";
+            const spaceCell = document.createElement("td");
+            spaceCell.textContent = Number.isFinite(space) ? `${formatNumber(space * 100, 2)}%` : "—";
+            if (Number.isFinite(space)) spaceCell.className = space >= 0 ? "space-positive" : "space-negative";
+            priceRow.appendChild(priceCell);
+            spaceRow.appendChild(spaceCell);
+          }
+          dom.priceGridBody.appendChild(priceRow);
+          dom.spaceGridBody.appendChild(spaceRow);
+        }
+
+        dom.scenarioCloseLabel.textContent = Number.isFinite(latestClose)
+          ? `最新收盘价：${formatNumber(latestClose, 2)}元`
+          : "最新收盘价：—";
+
+        const activeOverrideCount = [...manualProfitOverrides.keys()]
+          .filter((key) => key.startsWith(forecast.overridePrefix)).length;
+        dom.resetNegativeOverrides.hidden = activeOverrideCount === 0;
+
+        const missingBaseline = forecast.baseline.some((value) => !Number.isFinite(value));
+        if (!peLevels.length) {
+          dom.scenarioMessage.textContent = "缺少近五年PE极值，暂无法生成目标价和波动空间。";
+        } else if (missingBaseline) {
+          dom.scenarioMessage.textContent = `缺少 ${forecast.baselineYear} 年部分季度净利润，相关预测值以“—”显示。`;
+        } else {
+          const manualNote = activeOverrideCount ? `；已应用 ${activeOverrideCount} 个手动负值假设` : "";
+          dom.scenarioMessage.textContent = `PE五档区间：${peLevels.map((value) => formatNumber(value, 0)).join(" / ")}；波动系数：${formatNumber(volatility * 100, 0)}%${manualNote}。`;
+        }
+      }
+
+      function formatNumber(value, digits = 2) {
+        if (!Number.isFinite(value)) return "—";
+        return new Intl.NumberFormat("zh-CN", {
+          minimumFractionDigits: digits,
+          maximumFractionDigits: digits
+        }).format(value);
+      }
+
+      function formatDateTime(date) {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "—";
+        return new Intl.DateTimeFormat("zh-CN", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false
+        }).format(date);
+      }
+
+      function renderYear(year) {
+        const data = financialYears.get(Number(year));
+        if (!data) return;
+        const cells = [dom.q1, dom.q2, dom.q3, dom.q4];
+        cells.forEach((cell, index) => {
+          const profit = data.quarterProfits[index];
+          cell.textContent = profit === null ? "—" : formatNumber(profit / 100000000, 2);
+          cell.title = profit === null ? "该数据缺失" : `${formatNumber(profit, 2)} 元`;
+        });
+        dom.eps.textContent = data.basicEps === null ? "—" : formatNumber(data.basicEps, 2);
+      }
+
+      function renderDashboard(stock, quote, years) {
+        financialYears = years;
+        dom.companyName.textContent = quote.name || "—";
+        dom.companyCode.textContent = `${stock.marketName} · ${quote.code}`;
+        dom.latestPrice.textContent = quote.price === null ? "—" : formatNumber(quote.price, quote.decimals);
+        dom.totalShares.textContent = quote.totalShares === null ? "—" : formatNumber(quote.totalShares / 100000000, 2);
+        dom.updatedTime.textContent = `数据时间：${formatDateTime(quote.updatedAt)}`;
+
+        dom.yearSelect.replaceChildren();
+        for (const year of years.keys()) {
+          const option = document.createElement("option");
+          option.value = String(year);
+          option.textContent = `${year}年`;
+          dom.yearSelect.appendChild(option);
+        }
+
+        const latestYear = years.keys().next().value;
+        dom.yearSelect.value = String(latestYear);
+        renderYear(latestYear);
+        dom.dashboard.hidden = false;
+      }
+
+      async function runQuery(rawCode) {
+        let stock;
+        try {
+          stock = validateCode(rawCode);
+        } catch (error) {
+          setStatus(error.message, "error");
+          dom.input.focus();
+          return;
+        }
+
+        const requestId = ++activeRequest;
+        dom.button.disabled = true;
+        dom.button.textContent = "查询中…";
+        setStatus("正在获取实时行情、历史财报和近五年日线…", "loading");
+
+        try {
+          const [quote, financialRows, klineResult] = await Promise.all([
+            fetchQuote(stock),
+            fetchFinancials(stock.code),
+            fetchKlines(stock)
+              .then((data) => ({ data, error: null }))
+              .catch((error) => ({ data: [], error: error.message || "近五年日线数据暂不可用。" }))
+          ]);
+
+          if (requestId !== activeRequest) return;
+          const years = normalizeFinancials(financialRows);
+          if (!years.size) {
+            throw new Error("未找到同时包含Q1—Q4的完整财年数据。");
+          }
+
+          renderDashboard(stock, quote, years);
+          const valuation = calculateValuation(quote, financialRows, klineResult.data);
+          renderValuation(valuation, klineResult.error);
+          const latestClose = valuation && Number.isFinite(valuation.latestClose)
+            ? valuation.latestClose
+            : klineResult.data.length
+              ? klineResult.data[klineResult.data.length - 1].close
+              : quote.price;
+          renderScenario({ quote, financialRows, valuation, latestClose });
+          const valuationNote = klineResult.error ? "；历史PE区间暂不可用" : "；已生成近五年PE水位";
+          setStatus(`已加载 ${quote.name}（${stock.code}），共 ${years.size} 个完整财年${valuationNote}。`, "success");
+        } catch (error) {
+          if (requestId !== activeRequest) return;
+          setStatus(error && error.message ? error.message : "查询失败，请稍后重试。", "error");
+        } finally {
+          if (requestId === activeRequest) {
+            dom.button.disabled = false;
+            dom.button.textContent = "查询数据";
+          }
+        }
+      }
+
+      dom.form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        runQuery(dom.input.value);
+      });
+
+      dom.input.addEventListener("input", () => {
+        dom.input.value = dom.input.value.replace(/\D/g, "").slice(0, 6);
+      });
+
+      dom.yearSelect.addEventListener("change", () => renderYear(dom.yearSelect.value));
+
+      function updateVolatility(value) {
+        const normalized = Math.max(0, Math.min(100, Number(value) || 0));
+        dom.volatilityRange.value = String(normalized);
+        dom.volatilityNumber.value = String(normalized);
+        if (scenarioContext) renderScenario(scenarioContext);
+      }
+
+      dom.volatilityRange.addEventListener("input", () => updateVolatility(dom.volatilityRange.value));
+      dom.volatilityNumber.addEventListener("input", () => updateVolatility(dom.volatilityNumber.value));
+      dom.volatilityNumber.addEventListener("change", () => updateVolatility(dom.volatilityNumber.value));
+
+      dom.forecastBody.addEventListener("change", (event) => {
+        const input = event.target;
+        if (!(input instanceof HTMLInputElement) || !input.classList.contains("negative-profit-input")) return;
+        const key = input.dataset.overrideKey;
+        const rawValue = input.value.trim();
+        if (!key) return;
+        if (rawValue === "") {
+          manualProfitOverrides.delete(key);
+        } else {
+          const valueYi = Number(rawValue);
+          if (Number.isFinite(valueYi)) manualProfitOverrides.set(key, valueYi * 100000000);
+          else manualProfitOverrides.delete(key);
+        }
+        if (scenarioContext) renderScenario(scenarioContext);
+      });
+
+      dom.forecastBody.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && event.target instanceof HTMLInputElement) {
+          event.preventDefault();
+          event.target.blur();
+        }
+      });
+
+      dom.resetNegativeOverrides.addEventListener("click", () => {
+        if (!scenarioContext) return;
+        const prefix = `${scenarioContext.quote.code}|${new Date().getFullYear()}|`;
+        for (const key of [...manualProfitOverrides.keys()]) {
+          if (key.startsWith(prefix)) manualProfitOverrides.delete(key);
+        }
+        renderScenario(scenarioContext);
+      });
+    })();
+  </script>
+</body>
+</html>
